@@ -375,6 +375,67 @@ login in the Keychain, which can't be mounted — use Option A there.)
 
 ---
 
+## Kubernetes
+
+Ready-to-apply manifests are in
+[`deploy/k8s/claude-gateway.yaml`](deploy/k8s/claude-gateway.yaml): a `Secret`
+(your Bearer keys), a `PersistentVolumeClaim` for the Claude login, a
+single-replica `Deployment`, and a `ClusterIP` `Service`.
+
+```bash
+# 1. Edit GATEWAY_API_KEYS in the Secret first, then apply:
+kubectl apply -f deploy/k8s/claude-gateway.yaml
+
+# 2. Log in to your Claude subscription ONCE. Creds are written to the PVC, so
+#    they survive pod restarts and rollouts — you won't repeat this.
+kubectl exec -it deploy/claude-gateway -- claude
+#    → choose "Log in with Claude subscription", open the printed URL in your
+#      browser, finish the flow, then quit the CLI.
+
+# 3. (optional) confirm the subscription works from inside the pod:
+kubectl exec -it deploy/claude-gateway -- claude -p "say hi"
+
+# 4. Reach it (port-forward for a quick test):
+kubectl port-forward svc/claude-gateway 8000:80
+curl -H "Authorization: Bearer <your-key>" http://localhost:8000/v1/models
+```
+
+No pod restart is needed after logging in — each request spawns a fresh CLI
+process that picks up the stored credentials.
+
+### Notes specific to Kubernetes
+
+- **Run a single replica.** The PVC is `ReadWriteOnce` (one pod at a time), and
+  there is one subscription login behind the whole service — multiple replicas
+  would multiply rate-limit pressure against one account. The Deployment pins
+  `replicas: 1` with `strategy: Recreate` (a RWO volume can't attach to the old
+  and new pods during a rolling update). Scale throughput with `MAX_CONCURRENCY`,
+  not replicas.
+- **The PVC *is* the login persistence.** Creds live at `/home/appuser/.claude`
+  on the `claude-login` PVC. Deleting that PVC (e.g. `kubectl delete -f …`) loses
+  the login and you must redo step 2.
+- **Ownership.** The pod sets `fsGroup: 10001` / `runAsUser: 10001` so the mounted
+  volume is writable by the image's non-root `appuser`; don't change these unless
+  you rebuild the image with a different uid.
+- **Ready ≠ logged in.** `/health` (the probes) doesn't call Claude, so the pod
+  goes Ready before login — but completions fail until step 2 is done.
+- **Private image?** If the GHCR package is private, create a pull secret and
+  uncomment `imagePullSecrets` in the manifest:
+  ```bash
+  kubectl create secret docker-registry ghcr-pull \
+    --docker-server=ghcr.io \
+    --docker-username=<github-username> \
+    --docker-password=<token-with-read:packages>
+  ```
+- Pods are Linux, so the in-pod `claude` login writes a normal
+  `~/.claude/.credentials.json` (no macOS Keychain involved).
+
+> Same caveat as everywhere: this routes a **personal** Claude subscription —
+> keep it to internal/single-tenant use and within Anthropic's terms (see the
+> [Disclaimer](#disclaimer)).
+
+---
+
 ## Testing
 
 The whole suite **mocks the Agent SDK**, so no live subscription or CLI subprocess

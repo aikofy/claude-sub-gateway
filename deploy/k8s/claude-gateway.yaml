@@ -1,0 +1,119 @@
+# Claude Subscription Gateway — Kubernetes manifests.
+#
+# Apply:   kubectl apply -f deploy/k8s/claude-gateway.yaml
+# Then log in ONCE (writes creds to the PVC; survives restarts):
+#          kubectl exec -it deploy/claude-gateway -- claude
+# See the README "Kubernetes" section for the full walkthrough and caveats.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: claude-gateway-secrets
+type: Opaque
+stringData:
+  # Comma-separated Bearer keys clients must send. CHANGE THESE.
+  # Generate: python -c "import secrets; print('sk-gw-'+secrets.token_hex(24))"
+  GATEWAY_API_KEYS: "sk-gw-changeme-0001,sk-gw-changeme-0002"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: claude-login
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName: standard   # uncomment to pin a specific StorageClass
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claude-gateway
+  labels:
+    app: claude-gateway
+spec:
+  replicas: 1                 # one subscription login -> a single replica (see README)
+  strategy:
+    type: Recreate            # a ReadWriteOnce PVC can't attach to old+new pods at once
+  selector:
+    matchLabels:
+      app: claude-gateway
+  template:
+    metadata:
+      labels:
+        app: claude-gateway
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001        # matches the image's "appuser"
+        runAsGroup: 10001
+        fsGroup: 10001          # makes the mounted PVC writable by appuser
+      # If the GHCR package is private, create a pull secret (see README) and
+      # uncomment:
+      # imagePullSecrets:
+      #   - name: ghcr-pull
+      containers:
+        - name: gateway
+          image: ghcr.io/aikofy/claude-sub-gateway:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: GATEWAY_API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: claude-gateway-secrets
+                  key: GATEWAY_API_KEYS
+            - name: DEFAULT_MODEL
+              value: "claude-sonnet-4-6"
+            - name: MAX_CONCURRENCY
+              value: "4"
+            - name: REQUEST_TIMEOUT
+              value: "600"
+            - name: LOG_LEVEL
+              value: "INFO"
+          volumeMounts:
+            - name: claude-login
+              mountPath: /home/appuser/.claude
+          readinessProbe:
+            # /health needs no auth and doesn't call Claude — it reports that the
+            # HTTP server is up (completions still require the one-time login).
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"   # each concurrent request spawns a Node CLI subprocess
+      volumes:
+        - name: claude-login
+          persistentVolumeClaim:
+            claimName: claude-login
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claude-gateway
+  labels:
+    app: claude-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app: claude-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
