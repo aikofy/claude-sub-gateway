@@ -13,7 +13,8 @@ define, and the actual model calls flow through your Claude subscription.
 
 > ⚠️ **Personal / internal use only.** This is a thin personal bridge, not a
 > reselling or multi-tenant product. Your Claude subscription rate limits apply
-> to every call.
+> to every call. Not affiliated with Anthropic; your use is subject to
+> Anthropic's terms — see the [Disclaimer](#disclaimer).
 
 ---
 
@@ -416,4 +417,23 @@ Dockerfile           Python + Node + Claude CLI
 
 ## License
 
-MIT. Use with your own Claude subscription, within Anthropic's terms.
+[MIT](LICENSE) © 2026 aikofy. Use with your own Claude subscription, within
+Anthropic's terms — see the [Disclaimer](#disclaimer) below.
+
+## Disclaimer
+
+This project is **not affiliated with, endorsed by, or sponsored by Anthropic.**
+"Claude" and "Claude Code" are trademarks of Anthropic, PBC, used here only
+nominatively to describe compatibility.
+
+Using your Claude subscription through this gateway is **subject to Anthropic's
+terms** — including the Consumer Terms of Service, the Usage Policy, and any
+Claude Code / subscription terms. You are solely responsible for ensuring your
+use complies with them. This gateway is intended for **personal / internal use
+only**; it is not a reselling or multi-tenant product, and routing a consumer
+subscription through a programmatic API may not be permitted for all plans —
+check before you rely on it.
+
+The software is provided **"as is", without warranty of any kind** (see
+[`LICENSE`](LICENSE)). The authors are not liable for any account action,
+service interruption, rate-limiting, or other consequence arising from its use.
