@@ -97,6 +97,7 @@ All via environment variables (or a `.env` file). See [`.env.example`](.env.exam
 | `DEFAULT_MODEL`    | `claude-sonnet-4-6`  | Model used when a request omits `model`. |
 | `MODEL_ALIASES`    | *(empty)*            | Extra `name → claude-id` aliases. JSON (`{"gpt-4o":"claude-opus-4-8"}`) or `name:target,…`. Merged over the built-ins. |
 | `MAX_CONCURRENCY`  | `4`                  | Max concurrent Claude CLI subprocesses; extra requests queue. |
+| `MAX_TURNS`        | `8`                  | Max agent turns per request. Keep **> 1** — some models (e.g. Haiku) take an internal planning turn, and `1` makes the SDK abort with "Reached maximum number of turns (1)" (a 502). No tools are enabled, so this never causes a tool loop. |
 | `REQUEST_TIMEOUT`  | `600`                | Idle timeout (s): max wait for the next backend event. Trips on a stalled model; a slow client reading a stream does not count against it. |
 | `HOST`             | `0.0.0.0`            | Bind address. |
 | `PORT`             | `8000`               | Bind port. |
@@ -407,7 +408,7 @@ Common values (`--set` or a `-f values.yaml`):
 | `gatewayApiKeys` | *(required)* | Comma-separated Bearer keys (a Secret is created) |
 | `existingSecret` | `""` | Use a Secret you manage instead of `gatewayApiKeys` |
 | `image.tag` | chart `appVersion` | e.g. `latest` to track `main` |
-| `config.defaultModel` / `config.maxConcurrency` / `config.requestTimeout` | sonnet / 4 / 600 | Gateway env |
+| `config.defaultModel` / `config.maxConcurrency` / `config.maxTurns` / `config.requestTimeout` | sonnet / 4 / 8 / 600 | Gateway env (`maxTurns` must stay > 1) |
 | `persistence.size` / `persistence.storageClass` / `persistence.existingClaim` | `1Gi` / default / `""` | Login PVC |
 | `ingress.enabled` / `ingress.hosts` / `ingress.tls` | `false` | TLS Ingress (SSE annotations preset) |
 | `resources` | 250m/512Mi → 2/2Gi | CPU / memory |

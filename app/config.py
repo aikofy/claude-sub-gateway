@@ -74,6 +74,14 @@ class Settings(BaseSettings):
     # Max number of concurrent Claude CLI subprocesses. Requests beyond this queue.
     max_concurrency: int = 4
 
+    # Maximum agent turns per request. MUST be > 1: some models (notably Haiku)
+    # take an internal planning/thinking turn before answering, and max_turns=1
+    # makes the SDK abort with "Reached maximum number of turns (1)" (surfaced as
+    # a 502). Because allowed_tools=[] there is no tool loop, so a higher cap only
+    # lets the model finish its single user-facing reply — it never calls tools or
+    # runs away.
+    max_turns: int = 8
+
     # Idle timeout in seconds: the maximum time to wait for the *next* event from
     # the backend. A stalled model trips it; a slow client reading the stream does
     # not (it only bounds backend production, not client consumption). For

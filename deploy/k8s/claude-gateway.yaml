@@ -70,6 +70,8 @@ spec:
               value: "claude-sonnet-4-6"
             - name: MAX_CONCURRENCY
               value: "4"
+            - name: MAX_TURNS          # keep > 1 (max_turns=1 aborts some models)
+              value: "8"
             - name: REQUEST_TIMEOUT
               value: "600"
             - name: LOG_LEVEL

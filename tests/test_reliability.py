@@ -40,6 +40,27 @@ def make_req(stream: bool = False) -> ChatCompletionRequest:
     )
 
 
+# --------------------------------------------------------------------- max_turns
+def test_max_turns_defaults_above_one_and_is_configurable():
+    # Default must be > 1 (max_turns=1 makes some models, e.g. Haiku, abort with
+    # "Reached maximum number of turns (1)" -> 502).
+    default_opts = make_backend()._build_options(
+        system_prompt=None, model="m", max_tokens=None, stream=False
+    )
+    assert default_opts.max_turns > 1
+
+    custom = make_backend(max_turns=5)._build_options(
+        system_prompt=None, model="m", max_tokens=None, stream=False
+    )
+    assert custom.max_turns == 5
+
+    # Never drops below 1 even if misconfigured to 0/negative.
+    clamped = make_backend(max_turns=0)._build_options(
+        system_prompt=None, model="m", max_tokens=None, stream=False
+    )
+    assert clamped.max_turns == 1
+
+
 # --------------------------------------------------------------------- timeout
 async def test_nonstream_timeout_raises_504(monkeypatch):
     async def slow_query(*, prompt, options=None, transport=None):

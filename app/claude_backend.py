@@ -448,8 +448,12 @@ class ClaudeBackend:
         * ``system_prompt`` is set to the client's system content, or left None
           (the SDK then sends an *empty* system prompt — i.e. no agentic
           "Claude Code" persona, just plain text generation).
-        * ``allowed_tools=[]`` + ``max_turns=1`` + ``permission_mode`` that never
-          prompts => no file/bash/tool access and no interactive approval.
+        * ``allowed_tools=[]`` + ``permission_mode`` that never prompts => no
+          file/bash/tool access and no interactive approval.
+        * ``max_turns`` is configurable (default > 1): with no tools there is no
+          agentic loop, but some models take an internal planning turn before
+          answering, and ``max_turns=1`` would abort them with
+          "Reached maximum number of turns (1)".
         * ``setting_sources=None`` => do NOT load project/user settings or
           CLAUDE.md, keeping output free of local context.
         """
@@ -464,7 +468,7 @@ class ClaudeBackend:
             system_prompt=system_prompt,
             allowed_tools=[],
             disallowed_tools=[],
-            max_turns=1,
+            max_turns=max(1, self._settings.max_turns),
             permission_mode="bypassPermissions",
             setting_sources=None,
             include_partial_messages=stream,

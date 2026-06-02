@@ -95,9 +95,11 @@ async def test_system_message_routed_to_system_prompt(client, install_query):
     assert opts.system_prompt == "You are a pirate."
     # Single user turn is passed through verbatim as the prompt.
     assert calls[0]["prompt"] == "Hello"
-    # Pure text-generation profile.
+    # Pure text-generation profile: no tools. max_turns > 1 gives models room for
+    # an internal planning turn (max_turns=1 aborts some models, e.g. Haiku); with
+    # allowed_tools=[] there is no tool loop regardless.
     assert opts.allowed_tools == []
-    assert opts.max_turns == 1
+    assert opts.max_turns == 8
 
 
 async def test_multi_turn_history_folded_into_prompt(client, install_query):

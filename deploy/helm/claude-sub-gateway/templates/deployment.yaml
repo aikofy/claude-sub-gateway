@@ -48,6 +48,8 @@ spec:
               value: {{ .Values.config.defaultModel | quote }}
             - name: MAX_CONCURRENCY
               value: {{ .Values.config.maxConcurrency | quote }}
+            - name: MAX_TURNS
+              value: {{ .Values.config.maxTurns | quote }}
             - name: REQUEST_TIMEOUT
               value: {{ .Values.config.requestTimeout | quote }}
             - name: LOG_LEVEL

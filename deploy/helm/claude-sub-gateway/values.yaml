@@ -26,6 +26,9 @@ existingSecretKey: GATEWAY_API_KEYS
 config:
   defaultModel: claude-sonnet-4-6
   maxConcurrency: 4
+  # Max agent turns per request — keep > 1, or some models (e.g. Haiku) abort
+  # with "Reached maximum number of turns (1)". No tools => no agentic loop.
+  maxTurns: 8
   requestTimeout: 600
   logLevel: INFO
   corsOrigins: "*"
