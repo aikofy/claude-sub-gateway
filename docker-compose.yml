@@ -1,0 +1,29 @@
+# Docker Compose for the Claude Subscription Gateway.
+#
+# `docker compose` always reuses the `claude-login` named volume, so you log in
+# ONCE and never again — the volume survives `down`, restarts, and image
+# rebuilds. (It is only removed by `docker compose down -v`.)
+#
+# First-time setup:
+#   cp .env.example .env                     # then set GATEWAY_API_KEYS
+#   docker compose run --rm gateway claude   # one-time interactive subscription login
+#   docker compose up -d                     # start the gateway (http://localhost:8000)
+
+services:
+  gateway:
+    build: .
+    # Prefer the prebuilt image instead of building locally? Comment out `build`
+    # above and uncomment:
+    # image: ghcr.io/aikofy/claude-sub-gateway:latest
+    ports:
+      - "8000:8000"
+    # GATEWAY_API_KEYS (required) and any other settings come from .env —
+    # run `cp .env.example .env` first.
+    env_file: .env
+    volumes:
+      # The Claude subscription login is stored here and persists across runs.
+      - claude-login:/home/appuser/.claude
+    restart: unless-stopped
+
+volumes:
+  claude-login:

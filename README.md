@@ -299,6 +299,23 @@ All of these "just work" by pointing `base_url` at `http://localhost:8000/v1`:
 
 ## Docker
 
+### Docker Compose (recommended)
+
+Compose wires up the persistent login volume for you, so you **log in once and
+never again** — the `claude-login` volume survives `down`, restarts, and image
+rebuilds (only `docker compose down -v` removes it).
+
+```bash
+cp .env.example .env                      # set GATEWAY_API_KEYS
+docker compose run --rm gateway claude    # one-time interactive subscription login
+#   → choose "Log in with Claude subscription", finish the browser flow, quit.
+docker compose up -d                      # gateway at http://localhost:8000
+```
+
+The login is written to the named volume during that `run` step, so every
+`compose up` afterwards reuses it. Edit [`docker-compose.yml`](docker-compose.yml)
+to use the prebuilt GHCR image instead of building locally.
+
 ### Pull the prebuilt image (GHCR)
 
 CI publishes a multi-arch image (`linux/amd64`, `linux/arm64`) to the GitHub
@@ -324,6 +341,13 @@ docker build -t claude-gateway .
 
 The image contains Node + the Claude CLI but **not** your login. Provide it at
 runtime via a volume mounted at `/home/appuser/.claude`.
+
+> The image declares a **default volume** at `/home/appuser/.claude`, so if you
+> forget the `-v` flag your login still isn't written into the container's
+> writable layer. But that fallback is an *anonymous* volume — it's per-container
+> and is **deleted by `docker run --rm`**. To actually "log in once and reuse it",
+> mount a **named** volume (below) or use Docker Compose (above). Don't rely on
+> the default for persistence.
 
 **Option A — log in inside the container (works from any host, incl. macOS):**
 

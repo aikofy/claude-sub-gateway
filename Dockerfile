@@ -44,9 +44,20 @@ COPY app ./app
 
 # Run as non-root. (Claude's "bypassPermissions" mode refuses to run as root;
 # a normal user avoids that and is good practice anyway.) The CLI stores its
-# subscription login under $HOME/.claude — mount a volume there at runtime.
+# subscription login under $HOME/.claude. Pre-create that dir owned by appuser
+# so any volume mounted there inherits the right ownership (an empty named volume
+# is initialized from the image dir, which would otherwise be root-owned).
 RUN useradd --create-home --uid 10001 appuser \
-    && chown -R appuser:appuser /app
+    && mkdir -p /home/appuser/.claude \
+    && chown -R appuser:appuser /app /home/appuser/.claude
+
+# Default (anonymous) volume for the login so a `docker run` that FORGETS the
+# mount still keeps credentials out of the container's writable layer. This is
+# only a fallback: an anonymous volume is per-container and is deleted by
+# `docker run --rm`. For "log in once, reuse forever" mount a NAMED volume here
+# (or use docker compose — see README); a named mount takes precedence over this.
+VOLUME ["/home/appuser/.claude"]
+
 USER appuser
 ENV HOME=/home/appuser
 
