@@ -1,0 +1,19 @@
+apiVersion: v2
+name: claude-sub-gateway
+description: OpenAI-compatible API gateway backed by a Claude subscription via the Claude Agent SDK
+type: application
+# version  = chart version (overridden by the publish workflow from the git tag)
+# appVersion = gateway version it deploys
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/aikofy/claude-sub-gateway
+sources:
+  - https://github.com/aikofy/claude-sub-gateway
+keywords:
+  - claude
+  - openai
+  - gateway
+  - llm
+  - anthropic
+maintainers:
+  - name: aikofy

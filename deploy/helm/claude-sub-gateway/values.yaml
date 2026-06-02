@@ -1,0 +1,112 @@
+# Default values for claude-sub-gateway.
+
+# One subscription login backs the whole service and the login PVC is
+# ReadWriteOnce, so a single replica is intended. Scale throughput with
+# config.maxConcurrency, not replicaCount.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/aikofy/claude-sub-gateway
+  # Defaults to the chart's appVersion. Use "latest" to track main.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# --- Client API keys (Bearer tokens) ----------------------------------------
+# Provide keys here (a Secret is created for you) OR point existingSecret at a
+# Secret you manage. At least one key is REQUIRED — the gateway 401s otherwise.
+gatewayApiKeys: ""            # e.g. "sk-gw-aaa,sk-gw-bbb"
+existingSecret: ""           # name of a Secret holding the keys
+existingSecretKey: GATEWAY_API_KEYS
+
+# --- Gateway configuration (environment) ------------------------------------
+config:
+  defaultModel: claude-sonnet-4-6
+  maxConcurrency: 4
+  requestTimeout: 600
+  logLevel: INFO
+  corsOrigins: "*"
+  modelAliases: ""           # JSON or "name:target,..." (empty = built-ins only)
+
+extraEnv: []                 # e.g. [{ name: FOO, value: "bar" }]
+
+# --- Login persistence ------------------------------------------------------
+# The Claude subscription login is stored at /home/appuser/.claude. Keep this
+# enabled so the login survives pod restarts; disabling it means re-logging in
+# after every restart.
+persistence:
+  enabled: true
+  existingClaim: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  storageClass: ""           # "" = cluster default
+
+# --- Security context (matches the image's non-root appuser, uid 10001) -----
+# fsGroup lets the non-root user write the mounted login volume.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+securityContext: {}
+
+# A ReadWriteOnce PVC can't attach to old+new pods at once, so a rolling update
+# would deadlock — recreate instead.
+strategy:
+  type: Recreate
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: nginx
+  # Streaming-critical for this gateway: no response buffering + long timeouts
+  # (>= config.requestTimeout) so SSE/long completions aren't buffered/truncated.
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: gateway.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # tls:
+  #   - secretName: claude-gateway-tls
+  #     hosts:
+  #       - gateway.example.com
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi               # each concurrent request spawns a Node CLI subprocess
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 20
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

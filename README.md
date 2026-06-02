@@ -377,6 +377,58 @@ login in the Keychain, which can't be mounted — use Option A there.)
 
 ## Kubernetes
 
+Deploy either with the **Helm chart** (recommended) or the **plain manifests**.
+Both encode the same essentials: a single replica, a PVC for the login, the
+non-root `fsGroup`, and the streaming-friendly Ingress annotations.
+
+### Helm chart (recommended)
+
+The chart is in [`deploy/helm/claude-sub-gateway`](deploy/helm/claude-sub-gateway)
+and is published to GHCR as an OCI artifact on each `vX.Y.Z` tag.
+
+```bash
+# From the registry (released versions):
+helm install claude-gateway \
+  oci://ghcr.io/aikofy/charts/claude-sub-gateway --version <X.Y.Z> \
+  --set gatewayApiKeys="sk-gw-yourkey"
+
+# …or straight from a checkout of this repo:
+helm install claude-gateway deploy/helm/claude-sub-gateway \
+  --set gatewayApiKeys="sk-gw-yourkey"
+
+# then log in once (the chart's NOTES print this too):
+kubectl exec -it deploy/claude-gateway -- claude
+```
+
+Common values (`--set` or a `-f values.yaml`):
+
+| Value | Default | Purpose |
+|---|---|---|
+| `gatewayApiKeys` | *(required)* | Comma-separated Bearer keys (a Secret is created) |
+| `existingSecret` | `""` | Use a Secret you manage instead of `gatewayApiKeys` |
+| `image.tag` | chart `appVersion` | e.g. `latest` to track `main` |
+| `config.defaultModel` / `config.maxConcurrency` / `config.requestTimeout` | sonnet / 4 / 600 | Gateway env |
+| `persistence.size` / `persistence.storageClass` / `persistence.existingClaim` | `1Gi` / default / `""` | Login PVC |
+| `ingress.enabled` / `ingress.hosts` / `ingress.tls` | `false` | TLS Ingress (SSE annotations preset) |
+| `resources` | 250m/512Mi → 2/2Gi | CPU / memory |
+
+To expose it over HTTPS, set `ingress.enabled=true` with your host/TLS (the
+chart ships the streaming annotations; add a cert-manager `ClusterIssuer`
+annotation via `ingress.annotations` if you use one):
+
+```bash
+helm upgrade --install claude-gateway deploy/helm/claude-sub-gateway \
+  --set gatewayApiKeys="sk-gw-yourkey" \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=gateway.example.com \
+  --set ingress.hosts[0].paths[0].path=/ \
+  --set ingress.hosts[0].paths[0].pathType=Prefix \
+  --set ingress.tls[0].secretName=claude-gateway-tls \
+  --set ingress.tls[0].hosts[0]=gateway.example.com
+```
+
+### Plain manifests
+
 Ready-to-apply manifests are in
 [`deploy/k8s/claude-gateway.yaml`](deploy/k8s/claude-gateway.yaml): a `Secret`
 (your Bearer keys), a `PersistentVolumeClaim` for the Claude login, a

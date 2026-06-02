@@ -1,0 +1,25 @@
+Claude Subscription Gateway "{{ .Release.Name }}" is deploying.
+
+1) Log in to your Claude subscription ONCE (creds persist on the PVC across
+   restarts — no need to repeat):
+
+     kubectl exec -it deploy/{{ include "claude-sub-gateway.fullname" . }} -n {{ .Release.Namespace }} -- claude
+
+   Choose "Log in with Claude subscription", open the printed URL, finish, quit.
+   No pod restart is needed afterward.
+
+2) Reach the gateway:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+     https://{{ .host }}/v1   (OpenAI base URL)
+{{- end }}
+{{- else }}
+     kubectl port-forward svc/{{ include "claude-sub-gateway.fullname" . }} 8000:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+     curl -H "Authorization: Bearer <your-key>" http://localhost:8000/v1/models
+{{- end }}
+
+{{- if and (not .Values.existingSecret) (not .Values.gatewayApiKeys) }}
+
+WARNING: no API keys set — the gateway will reject all requests (401).
+Reinstall/upgrade with --set gatewayApiKeys="sk-gw-..." or set existingSecret.
+{{- end }}
