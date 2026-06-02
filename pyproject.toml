@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-subscription-gateway"
+version = "0.1.0"
+description = "OpenAI-compatible API gateway backed by a Claude subscription via the Claude Agent SDK"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7,<3.0",
+    "pydantic-settings>=2.3,<3.0",
+    "claude-agent-sdk==0.2.87",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "anyio>=4.0",
+    "httpx>=0.27",
+    "openai>=1.40",
+]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+# anyio drives the async tests; pin the backend to asyncio (see conftest).
+addopts = "-q"
+testpaths = ["tests"]
+markers = [
+    "anyio: mark a test as async (run via the anyio pytest plugin)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
