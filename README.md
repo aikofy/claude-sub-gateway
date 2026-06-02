@@ -482,6 +482,45 @@ completions); and `proxy-body-size: "10m"` for large prompts. On a non-NGINX
 controller (Traefik, HAProxy, a cloud LB) translate these to its equivalents —
 otherwise streaming can appear to "hang" until the response completes.
 
+### Deploying on k3s / Traefik
+
+k3s (and some other distros) ship **Traefik** as the default ingress controller,
+not NGINX — but the chart and plain manifests default to `ingressClassName: nginx`.
+If the class doesn't match your controller the Ingress is silently **ignored**:
+HTTPS may still terminate (via a wildcard/existing cert) yet every request returns
+a plain-text **`404 page not found`** (Traefik's default backend) instead of the
+gateway's JSON. Set the class to match:
+
+```bash
+kubectl get ingressclass            # find the real NAME, e.g. "traefik"
+
+helm upgrade --install claude-gateway \
+  oci://ghcr.io/aikofy/charts/claude-sub-gateway --version <X.Y.Z> -n <namespace> \
+  --set gatewayApiKeys="sk-gw-yourkey" \
+  --set ingress.enabled=true \
+  --set ingress.className=traefik \
+  --set ingress.hosts[0].host=gateway.example.com \
+  --set ingress.hosts[0].paths[0].path=/ \
+  --set ingress.hosts[0].paths[0].pathType=Prefix \
+  --set ingress.tls[0].secretName=gateway-tls \
+  --set ingress.tls[0].hosts[0]=gateway.example.com
+```
+
+- Traefik **ignores** the chart's `nginx.ingress.kubernetes.io/*` annotations —
+  harmless, since Traefik doesn't buffer responses, so SSE streaming works anyway.
+- Confirm the gateway is healthy independent of ingress:
+  `kubectl port-forward -n <namespace> svc/claude-gateway 8000:80`, then
+  `curl -H "Authorization: Bearer <key>" http://localhost:8000/v1/models`.
+- TLS: `ingress.tls[].secretName` must be populated by cert-manager (add a
+  `cert-manager.io/cluster-issuer` via `ingress.annotations`) or be a secret you
+  pre-create (e.g. a wildcard cert) — otherwise HTTPS has no certificate.
+
+> **Pulling from GHCR and getting a 401?** The packages are still private — a
+> *public repo does not make its packages public*. Make both
+> `charts/claude-sub-gateway` (chart) and `claude-sub-gateway` (image) public in
+> your org's **Packages** settings, or `helm registry login ghcr.io` and add an
+> `imagePullSecret`. See [Helm chart](#helm-chart-recommended).
+
 ### Notes specific to Kubernetes
 
 - **Run a single replica.** The PVC is `ReadWriteOnce` (one pod at a time), and
