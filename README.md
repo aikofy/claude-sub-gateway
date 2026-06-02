@@ -1,5 +1,7 @@
 # Claude Subscription Gateway
 
+[![Build and push Docker image](https://github.com/aikofy/claude-sub-gateway/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/aikofy/claude-sub-gateway/actions/workflows/docker-publish.yml)
+
 A self-hosted **OpenAI-compatible API** that proxies requests to **Claude** through
 the [**Claude Agent SDK**](https://github.com/anthropics/claude-agent-sdk-python).
 The SDK authenticates using your existing **Claude Code subscription login** —
@@ -296,7 +298,24 @@ All of these "just work" by pointing `base_url` at `http://localhost:8000/v1`:
 
 ## Docker
 
-Build:
+### Pull the prebuilt image (GHCR)
+
+CI publishes a multi-arch image (`linux/amd64`, `linux/arm64`) to the GitHub
+Container Registry on every push to `main` and on version tags:
+
+```bash
+docker pull ghcr.io/aikofy/claude-sub-gateway:latest
+```
+
+Use that image name in the `docker run` commands below in place of
+`claude-gateway`. If the package is private, authenticate first with a GitHub
+token that has the `read:packages` scope:
+
+```bash
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u <your-github-username> --password-stdin
+```
+
+### Build it yourself
 
 ```bash
 docker build -t claude-gateway .
