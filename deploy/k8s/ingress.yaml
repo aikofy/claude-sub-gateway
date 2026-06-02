@@ -1,0 +1,42 @@
+# Optional: expose the gateway over HTTPS via an Ingress controller.
+#
+# Assumes the NGINX ingress controller + cert-manager (automatic Let's Encrypt).
+# Replace `gateway.example.com` with your hostname and `letsencrypt-prod` with
+# your ClusterIssuer. For a bring-your-own certificate instead, drop the
+# cert-manager annotation and `kubectl create secret tls claude-gateway-tls ...`
+# (see the README "Ingress (HTTPS)" section).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: claude-gateway
+  annotations:
+    # cert-manager issues + auto-renews the cert into the secret named in tls[].
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # --- Streaming (SSE) correctness for this gateway ---
+    # Don't buffer upstream responses, or streamed chat completions are withheld
+    # until the end (the app also sends `X-Accel-Buffering: no`, but be explicit).
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    # Allow long-lived streamed/non-streamed completions. Keep these >= the
+    # gateway's REQUEST_TIMEOUT (default 600s) so generations aren't cut off;
+    # nginx's default proxy-read-timeout is only 60s.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Permit large prompts in the request body (nginx default is 1m).
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - gateway.example.com
+      secretName: claude-gateway-tls   # cert-manager creates/fills this secret
+  rules:
+    - host: gateway.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: claude-gateway
+                port:
+                  number: 80

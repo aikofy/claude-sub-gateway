@@ -403,6 +403,33 @@ curl -H "Authorization: Bearer <your-key>" http://localhost:8000/v1/models
 No pod restart is needed after logging in — each request spawns a fresh CLI
 process that picks up the stored credentials.
 
+### Ingress (HTTPS)
+
+[`deploy/k8s/ingress.yaml`](deploy/k8s/ingress.yaml) exposes the gateway over TLS.
+It assumes the **NGINX ingress controller** and **cert-manager** (automatic
+Let's Encrypt). Edit the host and `ClusterIssuer`, then apply:
+
+```bash
+kubectl apply -f deploy/k8s/ingress.yaml
+# clients then point at https://gateway.example.com/v1 as the OpenAI base URL:
+curl -H "Authorization: Bearer <your-key>" https://gateway.example.com/v1/models
+```
+
+**Bring your own certificate** instead of cert-manager? Remove the
+`cert-manager.io/cluster-issuer` annotation and create the TLS secret yourself:
+
+```bash
+kubectl create secret tls claude-gateway-tls --cert=tls.crt --key=tls.key
+```
+
+The example sets **streaming-critical** annotations for this gateway:
+`proxy-buffering: "off"` so SSE chunks flush immediately instead of being held to
+the end; generous `proxy-read-timeout` / `proxy-send-timeout` (keep them ≥
+`REQUEST_TIMEOUT`, since nginx defaults to 60s and would otherwise truncate long
+completions); and `proxy-body-size: "10m"` for large prompts. On a non-NGINX
+controller (Traefik, HAProxy, a cloud LB) translate these to its equivalents —
+otherwise streaming can appear to "hang" until the response completes.
+
 ### Notes specific to Kubernetes
 
 - **Run a single replica.** The PVC is `ReadWriteOnce` (one pod at a time), and
