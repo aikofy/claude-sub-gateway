@@ -14,7 +14,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pydantic>=2.7,<3.0",
     "pydantic-settings>=2.3,<3.0",
-    "claude-agent-sdk==0.2.87",
+    "claude-agent-sdk==0.2.95",
 ]
 
 [project.optional-dependencies]

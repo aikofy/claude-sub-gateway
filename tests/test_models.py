@@ -27,7 +27,12 @@ async def test_models_listing_shape(client):
 async def test_models_include_canonical_ids(client):
     resp = await client.get("/v1/models", headers=AUTH)
     ids = {m["id"] for m in resp.json()["data"]}
-    assert {"claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"} <= ids
+    assert {
+        "claude-fable-5",
+        "claude-opus-4-8",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5",
+    } <= ids
 
 
 async def test_models_include_friendly_aliases(client):

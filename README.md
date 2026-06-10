@@ -108,8 +108,9 @@ All via environment variables (or a `.env` file). See [`.env.example`](.env.exam
 
 Send a real Claude id, a CLI short name, or a friendly alias — the gateway maps it:
 
-* **Canonical ids** (pass-through): `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`
-* **Short names**: `opus`, `sonnet`, `haiku`
+* **Canonical ids** (pass-through): `claude-fable-5`, `claude-opus-4-8`,
+  `claude-sonnet-4-6`, `claude-haiku-4-5`
+* **Short names**: `fable`, `opus`, `sonnet`, `haiku`
 * **Built-in friendly aliases**: `gpt-4`, `gpt-4o`, `gpt-4-turbo`, `gpt-4o-mini`,
   `gpt-3.5-turbo`, `claude-3-opus`, `claude-3-5-sonnet`, `claude-3-haiku`
 
@@ -582,9 +583,13 @@ client** (non-stream, stream, models, 401).
   exposes no knob for them. (Nothing errors; they're silently dropped.)
 * **Token usage** comes from the SDK's `ResultMessage.usage` when available; if it's
   missing, `usage` is a rough character-based estimate (~4 chars/token).
-* **Stateless / single-turn.** Each request is an independent `query()` with
-  `max_turns=1` and no tools. Multi-turn history you send in `messages` is folded
-  into one prompt with role markers — there is no server-side session store.
+* **Stateless.** Each request is an independent `query()` with no tools and a
+  bounded number of internal turns (`MAX_TURNS`, default 8 — with no tools there
+  is no agentic loop). Multi-turn history you send in `messages` is folded into
+  one prompt with role markers — there is no server-side session store.
+* **A non-system message is required.** `messages` must contain at least one
+  non-system message with non-empty content; otherwise the gateway returns a
+  400 (the underlying CLI cannot run an empty prompt).
 * **Function calling is best-effort.** It works (see [Function / tool
   calling](#function--tool-calling)), but it's implemented by injecting the tool
   schemas into the prompt and parsing the model's reply — not via a native
@@ -615,7 +620,12 @@ app/
   config.py          pydantic-settings configuration
   errors.py          GatewayError + OpenAI error envelope helpers
 tests/               pytest suite (Agent SDK mocked)
+deploy/
+  k8s/               plain Kubernetes manifests (+ optional TLS Ingress)
+  helm/              Helm chart (published to GHCR as an OCI artifact)
+.github/workflows/   CI: Docker image + Helm chart publishing to GHCR
 Dockerfile           Python + Node + Claude CLI
+docker-compose.yml   Compose file with a persistent login volume
 .env.example         Configuration template
 ```
 

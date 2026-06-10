@@ -189,3 +189,63 @@ async def test_missing_messages_returns_openai_400(client):
     )
     assert resp.status_code == 400
     assert resp.json()["error"]["type"] == "invalid_request_error"
+
+
+async def test_empty_messages_array_returns_400(client, install_query):
+    calls = install_query([text_assistant("hi"), result_message()])
+    resp = await client.post(
+        "/v1/chat/completions", headers=AUTH, json={"messages": []}
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["type"] == "invalid_request_error"
+    assert not calls  # rejected before the backend is reached
+
+
+async def test_system_only_messages_returns_400(client, install_query):
+    # A system-only conversation folds to an empty prompt, which the CLI cannot
+    # run — must be a clean 400, not a 502/timeout.
+    calls = install_query([text_assistant("hi"), result_message()])
+    resp = await client.post(
+        "/v1/chat/completions",
+        headers=AUTH,
+        json={"messages": [{"role": "system", "content": "You are terse."}]},
+    )
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["error"]["type"] == "invalid_request_error"
+    assert body["error"]["param"] == "messages"
+    assert not calls
+
+
+async def test_streaming_empty_prompt_returns_http_400_not_sse(client, install_query):
+    # Streaming requests must be validated BEFORE the SSE response starts, so the
+    # client sees a real HTTP 400 instead of an error event under HTTP 200.
+    calls = install_query([text_assistant("hi"), result_message()])
+    resp = await client.post(
+        "/v1/chat/completions",
+        headers=AUTH,
+        json={
+            "stream": True,
+            "messages": [{"role": "user", "content": "   "}],
+        },
+    )
+    assert resp.status_code == 400
+    assert resp.headers["content-type"].startswith("application/json")
+    assert resp.json()["error"]["type"] == "invalid_request_error"
+    assert not calls
+
+
+async def test_non_function_tool_entries_are_tolerated(client, install_query):
+    # Unknown tool types (no `function` payload) are skipped, not a 422/400.
+    calls = install_query([text_assistant("hi"), result_message()])
+    resp = await client.post(
+        "/v1/chat/completions",
+        headers=AUTH,
+        json={
+            "messages": [{"role": "user", "content": "Hi"}],
+            "tools": [{"type": "code_interpreter"}],
+        },
+    )
+    assert resp.status_code == 200
+    # No usable tools were offered -> plain text path, untouched system prompt.
+    assert calls[0]["options"].system_prompt is None

@@ -177,6 +177,10 @@ async def chat_completions(
     backend = _get_backend(request)
 
     if body.stream:
+        # Validate eagerly: an error raised inside the SSE generator can only be
+        # delivered as an in-stream error event under HTTP 200, so catch invalid
+        # requests here while a real 400 response is still possible.
+        backend.validate_request(body)
         return StreamingResponse(
             _sse_event_stream(backend, body),
             media_type="text/event-stream",

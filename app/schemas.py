@@ -80,12 +80,16 @@ class FunctionDef(BaseModel):
 
 
 class Tool(BaseModel):
-    """OpenAI ``tools[]`` entry. Only ``type:"function"`` is supported."""
+    """OpenAI ``tools[]`` entry. Only ``type:"function"`` is supported.
+
+    ``function`` is optional so entries of other types (e.g. a client sending a
+    built-in tool spec) are tolerated and skipped rather than causing a 400.
+    """
 
     model_config = ConfigDict(extra="ignore")
 
     type: str = "function"
-    function: FunctionDef
+    function: FunctionDef | None = None
 
 
 class ChatCompletionRequest(BaseModel):
@@ -97,7 +101,9 @@ class ChatCompletionRequest(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    messages: list[ChatMessage]
+    # OpenAI rejects an empty messages array with a 400; mirror that here so the
+    # request never reaches the CLI with nothing to say.
+    messages: list[ChatMessage] = Field(min_length=1)
     model: str | None = None
     stream: bool = False
     stream_options: StreamOptions | None = None

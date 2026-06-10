@@ -338,6 +338,33 @@ class ClaudeBackend:
         self._semaphore = asyncio.Semaphore(max(1, settings.max_concurrency))
         self._timeout = settings.request_timeout
 
+    # ------------------------------------------------------------ validation
+    @staticmethod
+    def _require_prompt(prompt: str) -> None:
+        """Reject requests that fold down to an empty prompt (e.g. system-only
+        ``messages`` or blank user content). The CLI cannot run an empty prompt,
+        and letting it try yields an opaque 502/timeout instead of a clear 400.
+        """
+        if not prompt.strip():
+            raise GatewayError(
+                "messages must contain at least one non-system message with "
+                "non-empty content.",
+                status_code=400,
+                type="invalid_request_error",
+                code="invalid_request",
+                param="messages",
+            )
+
+    def validate_request(self, req: ChatCompletionRequest) -> None:
+        """Cheap pre-flight validation of a chat-completion request.
+
+        The streaming route calls this *before* the response starts so an
+        invalid request gets a real HTTP 400 — an error raised later, inside the
+        generator, can only be delivered as an in-stream SSE error event.
+        """
+        _, convo = self._split_messages(req.messages)
+        self._require_prompt(self._build_prompt(convo))
+
     # ----------------------------------------------------------- translation
     def _split_messages(
         self, messages: list[ChatMessage]
@@ -651,6 +678,7 @@ class ClaudeBackend:
         echo_model = (req.model or self._settings.default_model).strip()
         system_prompt, convo = self._split_messages(req.messages)
         prompt = self._build_prompt(convo)
+        self._require_prompt(prompt)
         system_prompt, offering_tools = self._augment_system_for_tools(
             system_prompt, req
         )
@@ -738,6 +766,7 @@ class ClaudeBackend:
         echo_model = (req.model or self._settings.default_model).strip()
         system_prompt, convo = self._split_messages(req.messages)
         prompt = self._build_prompt(convo)
+        self._require_prompt(prompt)
         system_prompt, offering_tools = self._augment_system_for_tools(
             system_prompt, req
         )

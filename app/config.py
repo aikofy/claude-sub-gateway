@@ -23,6 +23,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # These are passed straight through to the Claude CLI's ``--model`` flag. The CLI
 # also accepts short aliases like "opus"/"sonnet"/"haiku", which we expose below.
 CANONICAL_MODELS: tuple[str, ...] = (
+    "claude-fable-5",
     "claude-opus-4-8",
     "claude-sonnet-4-6",
     "claude-haiku-4-5",
@@ -35,6 +36,7 @@ CANONICAL_MODELS: tuple[str, ...] = (
 # like "opus" still work).
 DEFAULT_ALIASES: dict[str, str] = {
     # Short Claude names understood by the CLI, kept explicit for /v1/models.
+    "fable": "claude-fable-5",
     "opus": "claude-opus-4-8",
     "sonnet": "claude-sonnet-4-6",
     "haiku": "claude-haiku-4-5",
